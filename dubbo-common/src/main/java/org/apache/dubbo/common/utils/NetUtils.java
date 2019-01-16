@@ -318,14 +318,22 @@ public class NetUtils {
     }
 
     public static InetSocketAddress toAddress(String address) {
+        //Before
         int i = address.indexOf(':');
+
+        //Promoted
         String host;
-        int port;
         if (i > -1) {
             host = address.substring(0, i);
-            port = Integer.parseInt(address.substring(i + 1));
         } else {
             host = address;
+        }
+
+        //After
+        int port;
+        if (i > -1) {
+            port = Integer.parseInt(address.substring(i + 1));
+        } else {
             port = 0;
         }
         return new InetSocketAddress(host, port);
