@@ -22,6 +22,7 @@ import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcStatus;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -55,43 +56,36 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         // Every least active invoker has the same weight value?
         boolean sameWeight = true;
 
-
-        // Filter out all the least active invokers
-        for (int i = 0; i < length; i++) {
+        int i=0;
+        while (i < length) {
             Invoker<T> invoker = invokers.get(i);
-            // Get the active number of the invoke
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
-            // Get the weight of the invoke configuration. The default value is 100.
             int afterWarmup = getWeight(invoker, invocation);
-            // save for later use
-            weights[i] = afterWarmup;
-            // If it is the first invoker or the active number of the invoker is less than the current least active number
             if (leastActive == -1 || active < leastActive) {
-                // Reset the active number of the current invoker to the least active number
-                leastActive = active;
-                // Reset the number of least active invokers
-                leastCount = 1;
-                // Put the first least active invoker first in leastIndexs
-                leastIndexes[0] = i;
-                // Reset totalWeight
                 totalWeight = afterWarmup;
-                // Record the weight the first least active invoker
-                firstWeight = afterWarmup;
-                // Each invoke has the same weight (only one invoker here)
-                sameWeight = true;
-                // If current invoker's active value equals with leaseActive, then accumulating.
             } else if (active == leastActive) {
-                // Record the index of the least active invoker in leastIndexs order
-                leastIndexes[leastCount++] = i;
-                // Accumulate the total weight of the least active invoker
                 totalWeight += afterWarmup;
-                // If every invoker has the same weight?
-                if (sameWeight && i > 0
-                        && afterWarmup != firstWeight) {
+            }
+
+            invoker = invokers.get(i);
+            active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
+            afterWarmup = getWeight(invoker, invocation);
+            weights[i] = afterWarmup;
+            if (leastActive == -1 || active < leastActive) {
+                leastActive = active;
+                leastCount = 1;
+                leastIndexes[0] = i;
+                firstWeight = afterWarmup;
+                sameWeight = true;
+            } else if (active == leastActive) {
+                leastIndexes[leastCount++] = i;
+                if (sameWeight && i > 0 && afterWarmup != firstWeight) {
                     sameWeight = false;
                 }
             }
+            i++;
         }
+
         // Choose an invoker from all the least active invokers
         if (leastCount == 1) {
             // If we got exactly one invoker having the least active value, return this invoker directly.
@@ -102,7 +96,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             // totalWeight.
             int offsetWeight = ThreadLocalRandom.current().nextInt(totalWeight);
             // Return a invoker based on the random value.
-            for (int i = 0; i < leastCount; i++) {
+            for (i = 0; i < leastCount; i++) {
                 int leastIndex = leastIndexes[i];
                 offsetWeight -= weights[leastIndex];
                 if (offsetWeight < 0) {
