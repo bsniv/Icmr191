@@ -58,18 +58,11 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
         int i=0;
         while (i < length) {
+            totalWeight = getTotalWeight(invocation, invokers, leastActive, totalWeight, i);
+
             Invoker<T> invoker = invokers.get(i);
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
             int afterWarmup = getWeight(invoker, invocation);
-            if (leastActive == -1 || active < leastActive) {
-                totalWeight = afterWarmup;
-            } else if (active == leastActive) {
-                totalWeight += afterWarmup;
-            }
-
-            invoker = invokers.get(i);
-            active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
-            afterWarmup = getWeight(invoker, invocation);
             weights[i] = afterWarmup;
             if (leastActive == -1 || active < leastActive) {
                 leastActive = active;
@@ -106,5 +99,17 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         }
         // If all invokers have the same weight value or totalWeight=0, return evenly.
         return invokers.get(leastIndexes[ThreadLocalRandom.current().nextInt(leastCount)]);
+    }
+
+    private <T> int getTotalWeight(Invocation invocation, List<Invoker<T>> invokers, int leastActive, int totalWeight, int i) {
+        Invoker<T> invoker = invokers.get(i);
+        int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
+        int afterWarmup = getWeight(invoker, invocation);
+        if (leastActive == -1 || active < leastActive) {
+            totalWeight = afterWarmup;
+        } else if (active == leastActive) {
+            totalWeight += afterWarmup;
+        }
+        return totalWeight;
     }
 }
