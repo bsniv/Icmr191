@@ -37,6 +37,9 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "leastactive";
 
+    // The sum of the warmup weights of all the least active invokes
+    private int totalWeight;
+
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers
@@ -50,7 +53,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         // the weight of every invokers
         int[] weights = new int[length];
         // The sum of the warmup weights of all the least active invokes
-        int totalWeight = 0;
+        setTotalWeight(0);
         // The weight of the first least active invoke
         int firstWeight = 0;
         // Every least active invoker has the same weight value?
@@ -58,7 +61,7 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
         int i=0;
         while (i < length) {
-            totalWeight = getTotalWeight(invocation, invokers, leastActive, totalWeight, i);
+            calculateTotalWeight(invocation, invokers, leastActive, i);
 
             Invoker<T> invoker = invokers.get(i);
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
@@ -84,10 +87,10 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
             // If we got exactly one invoker having the least active value, return this invoker directly.
             return invokers.get(leastIndexes[0]);
         }
-        if (!sameWeight && totalWeight > 0) {
+        if (!sameWeight && getTotalWeight() > 0) {
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on 
             // totalWeight.
-            int offsetWeight = ThreadLocalRandom.current().nextInt(totalWeight);
+            int offsetWeight = ThreadLocalRandom.current().nextInt(getTotalWeight());
             // Return a invoker based on the random value.
             for (i = 0; i < leastCount; i++) {
                 int leastIndex = leastIndexes[i];
@@ -101,15 +104,22 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         return invokers.get(leastIndexes[ThreadLocalRandom.current().nextInt(leastCount)]);
     }
 
-    private <T> int getTotalWeight(Invocation invocation, List<Invoker<T>> invokers, int leastActive, int totalWeight, int i) {
+    private <T> void calculateTotalWeight(Invocation invocation, List<Invoker<T>> invokers, int leastActive, int i) {
         Invoker<T> invoker = invokers.get(i);
         int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
         int afterWarmup = getWeight(invoker, invocation);
         if (leastActive == -1 || active < leastActive) {
-            totalWeight = afterWarmup;
+            setTotalWeight(afterWarmup);
         } else if (active == leastActive) {
-            totalWeight += afterWarmup;
+            setTotalWeight(getTotalWeight()+afterWarmup);
         }
+    }
+
+    public int getTotalWeight(){
         return totalWeight;
+    }
+
+    public void setTotalWeight(int totalWeight){
+        this.totalWeight = totalWeight;
     }
 }
