@@ -318,28 +318,19 @@ public class NetUtils {
     }
 
     public static InetSocketAddress toAddress(String address) {
+        // Slice:
         int i = address.indexOf(':');
-        return new InetSocketAddress(getHostFromAddress(address, i), getPortFromAddress(address, i));
-    }
-
-    private static int getPortFromAddress(String address, int i) {
-        int port;
-        if (i > -1) {
-            port = Integer.parseInt(address.substring(i + 1));
-        } else {
-            port = 0;
-        }
-        return port;
-    }
-
-    private static String getHostFromAddress(String address, int i) {
-        String host;
+        String host = address;
         if (i > -1) {
             host = address.substring(0, i);
-        } else {
-            host = address;
         }
-        return host;
+
+        // Co-Slice:
+        int port = 0;
+        if (i > -1) {
+            port = Integer.parseInt(address.substring(i + 1));
+        }
+        return new InetSocketAddress(host,port);
     }
 
     public static String toURL(String protocol, String host, int port, String path) {
